@@ -1,0 +1,70 @@
+image:
+  name: hashicorp/terraform:light
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    - 'AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}'
+    - 'AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}'
+
+cache:
+  paths:
+    - .terraform
+
+before_script:
+  - mkdir ~/.ssh/
+  - echo "${SSH_PRIVATEKEY}" > ~/.ssh/id_rsa
+  - chmod 700 ~/.ssh/id_rsa
+  - echo "${SSH_PUBLICKEY}" > ~/.ssh/id_rsa.pub
+  - chmod 700 ~/.ssh/id_rsa.pub
+  - echo "${SSH_HOSTS}" > ~/.ssh/known_hosts
+  - chmod 700 ~/.ssh/id_rsa.pub
+  - terraform init
+
+stages:
+  - checkout
+  - validate-infra
+  - plan
+  - build
+  - clear
+
+checkout:
+ stage: checkout
+ script:
+   - git clone git@lab.coodesh.com:aleciofrjr/devops-challenge-2021.git
+
+validate-infra:
+  stage: validate-infra
+  script:
+    - terraform validate
+  artifacts:
+    paths:
+      - ./  
+
+plan:
+  stage: plan
+  script:
+    - terraform plan -out "output_plan" 
+  artifacts:
+    paths:
+      - ./
+
+build:
+  stage: build
+  script:
+    - terraform apply -auto-approve output_plan
+  artifacts:
+    paths:
+      - ./ 
+  only:
+    - master
+
+clear:
+   stage: clear
+   script:
+     - terraform destroy
+   artifacts:
+     paths:
+       - ./
+   only:
+     - master
+   when: on_failure
